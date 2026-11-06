@@ -1,0 +1,64 @@
+/* ── Print (2026-10-24 go-live wrap-up) ───────────────────────────────────
+   A4, black on white, no app chrome. Used by lib/print.ts:
+     body.lx-print-page  – printing a screen (list / report / register)
+     body.lx-print-modal – printing only the open `printable` AppModal
+   Mark anything that must not print with .lx-no-print (or Tailwind print:hidden);
+   content that only exists on paper (letterhead, signature lines) with .lx-print-only. */
+
+.lx-print-only { display: none; }
+
+@page {
+  size: A4;
+  margin: 12mm 11mm 14mm 11mm;
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #6b7280; }
+}
+@page landscape { size: A4 landscape; }
+
+@media print {
+  html, body { background: #fff !important; color: #111827 !important; }
+  body { overflow: visible !important; font-size: 10pt; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .lx-no-print, .lx-app-chrome, [data-no-print] { display: none !important; }
+  .lx-print-only { display: block !important; }
+  .lx-print-landscape { page: landscape; }
+
+  /* Screen printing: the main column takes the full sheet. */
+  body.lx-print-page .lx-app-main { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: none !important; }
+  body.lx-print-page .lx-modal-host { display: none !important; }
+
+  /* Modal printing: only the printable dialog, laid out as a document. */
+  body.lx-print-modal > *:not(.lx-print-host) { display: none !important; }
+  body.lx-print-modal .lx-print-host {
+    position: static !important; display: block !important; inset: auto !important;
+    background: none !important; padding: 0 !important; overflow: visible !important;
+  }
+  body.lx-print-modal .lx-print-host .lx-modal-panel {
+    display: block !important; box-shadow: none !important; border-radius: 0 !important;
+    width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important;
+  }
+  body.lx-print-modal .lx-print-host .lx-modal-head { border: 0 !important; padding: 0 0 4mm 0 !important; }
+  body.lx-print-modal .lx-print-host .lx-modal-body { overflow: visible !important; padding: 0 !important; }
+
+  /* Region printing (lib/print.printRegion): only the target element and its
+     ancestors render; every sibling along that path is hidden. */
+  body.lx-print-region .lx-print-path > :not(.lx-print-path):not(.lx-print-target) { display: none !important; }
+  body.lx-print-region .lx-print-path { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: none !important; border: 0 !important; box-shadow: none !important; transform: none !important;
+    height: auto !important; min-height: 0 !important; max-height: none !important; overflow: visible !important; display: block !important; position: static !important; inset: auto !important; background: none !important; }
+  body.lx-print-region .lx-print-target { margin: 0 !important; width: 100% !important; max-width: none !important; max-height: none !important; height: auto !important; box-shadow: none !important; }
+  body.lx-print-region .lx-print-target [class*="max-h-"] { max-height: none !important; }
+  body.lx-print-region .lx-print-target td .btn-primary,
+  body.lx-print-region .lx-print-target td .btn-secondary { display: none !important; }
+
+  /* Long content flows across pages instead of being clipped. */
+  .overflow-auto, .overflow-x-auto, .overflow-y-auto, .overflow-hidden { overflow: visible !important; }
+  .max-h-\[70vh\], .max-h-\[60vh\], .max-h-\[80vh\] { max-height: none !important; }
+  .sticky { position: static !important; }
+  table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr, img, .lx-keep { page-break-inside: avoid; break-inside: avoid; }
+  th, td { color: #111827 !important; }
+  .card { box-shadow: none !important; border-color: #d1d5db !important; }
+  a[href]::after { content: none !important; }
+}

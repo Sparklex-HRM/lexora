@@ -1,0 +1,11 @@
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/test_*.py
+**/conftest.py
+**/*.db
+**/*.sqlite
+**/files/
+**/.env
+**/.env.*
+requirements-dev.txt

@@ -1,0 +1,58 @@
+{
+  "name": "Lexora HRM — Canadian HR & payroll",
+  "short_name": "Lexora",
+  "description": "Punch, leave, pay stubs and Ask HR from your phone.",
+  "start_url": "/mobile/home",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Punch",
+      "url": "/mobile/punch"
+    },
+    {
+      "name": "Apply leave",
+      "url": "/mobile/leave"
+    },
+    {
+      "name": "Ask HR",
+      "url": "/engage/helpdesk?new=1"
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+# Lexora HRM — LOCAL DEV stack (compose project "lexora", runs side by side with Lexora HRM).
+# Build ONE service at a time on small machines:
+#   docker compose build <svc> && docker compose up -d <svc>
+# Gateway on :8200 ; each service host-mapped on 820x for direct access; Postgres :5452, Redis :6399.
+# PRODUCTION uses docker-compose.prod.yml (no dev ports, real secrets required) or deploy/helm.
+# Every value below can be overridden from .env (gitignored; template: .env.example). The
+# defaults are DEV-ONLY: with LEXORA_ENV=production every service refuses to start on them.
+name: lexora
+
+x-svc-env: &svc-env
+  LEXORA_ENV: ${LEXORA_ENV:-development}
+  DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/lexora
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-key-change-me}
+  LEXORA_INTERNAL_TOKEN: ${LEXORA_INTERNAL_TOKEN:-}
+  LEXORA_DATA_KEY: ${LEXORA_DATA_KEY:-}
+  LEXORA_DATA_KEY_ID: ${LEXORA_DATA_KEY_ID:-k1}
+  LEXORA_DATA_KEYS: ${LEXORA_DATA_KEYS:-}
+  LEXORA_FILES_DIR: /app/data/files
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3200,http://127.0.0.1:3200,http://localhost:8280}
+  # S5 provider defaults — read by BOTH auth-service and integrations-service (placeholders in .env.example)
+  LEXORA_PUBLIC_API_URL: ${LEXORA_PUBLIC_API_URL:-}
+  # Interview calendars (Google / Microsoft) platform OAuth apps + careers-page captcha.
+  # Blank = the screen says "not configured"; per-org keys can be saved in-app.
+  LEXORA_GOOGLE_CLIENT_ID: ${LEXORA_GOOGLE_CLIENT_ID:-}
+  LEXORA_GOOGLE_CLIENT_SECRET: ${LEXORA_GOOGLE_CLIENT_SECRET:-}
+  LEXORA_MS_CLIENT_ID: ${LEXORA_MS_CLIENT_ID:-}
+  LEXORA_MS_CLIENT_SECRET: ${LEXORA_MS_CLIENT_SECRET:-}
+  LEXORA_MS_TENANT: ${LEXORA_MS_TENANT:-}
+  LEXORA_CAPTCHA_PROVIDER: ${LEXORA_CAPTCHA_PROVIDER:-}
+  LEXORA_CAPTCHA_SITE_KEY: ${LEXORA_CAPTCHA_SITE_KEY:-}
+  LEXORA_CAPTCHA_SECRET: ${LEXORA_CAPTCHA_SECRET:-}
+  # ── Populate these in Lexora-HRM/.env (compose auto-loads it) — never commit real values.
+  # With ANTHROPIC_API_KEY set, Lexi (the AI assistant) becomes a live Claude agent; SMTP_* enables email.
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LEXI_MODEL: ${LEXI_MODEL:-claude-opus-5}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_FROM: ${SMTP_FROM:-Lexora HRM <no-reply@lexora.local>}
+  SMTP_TLS: ${SMTP_TLS:-true}
+  # Base URL used to build user-facing links in emails (invite links etc.).
+  APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3200}
+  # Test machines only: show the e-sign one-time code on screen when no mail server is set up
+  # (tester scripts / e2e). Leave unset in production.
+  LEXORA_DEV_SHOW_LINKS: ${LEXORA_DEV_SHOW_LINKS:-}
+  # S4: two-step sign-in is mandatory for admin roles (default 1). Local API e2e runs may set 0.
+  LEXORA_MFA_ENFORCE: ${LEXORA_MFA_ENFORCE:-1}
+  # Decision 2026-10-21: public self-serve sign-up (/auth/signup) is OFF by default. Only the local
+  # stack switches it on (LEXORA_PUBLIC_SIGNUP=1 in .env).
+  LEXORA_PUBLIC_SIGNUP: ${LEXORA_PUBLIC_SIGNUP:-}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    # 14 services × (pool 5 + overflow 3 + platform engine 2) > the default 100 → "too many clients" under load
+    # (integration 2026-10-23: idle pools alone held ~100). Same value as docker-compose.prod.yml.
+    command: ["postgres", "-c", "max_connections=200"]
+    environment:
+      POSTGRES_DB: lexora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports: ["127.0.0.1:5452:5432", "[::1]:5452:5432"]
+    volumes: ["lexora_pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:6399:6379", "[::1]:6399:6379"]
+
+  api-gateway:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: api-gateway } }
+    environment:
+      <<: *svc-env
+      # WASA 2026-10-21: requests for any other Host are refused (400). The vite dev proxy sends localhost:8200.
+      LEXORA_ALLOWED_HOSTS: ${LEXORA_ALLOWED_HOSTS:-localhost,127.0.0.1,api-gateway,host.docker.internal}
+      # 2026-10-24 org Roles & Permissions: all = permission catalogue enforced for every login (deny by default);
+      # custom = only logins that carry custom roles; off = break-glass (see docs/security/RBAC.md)
+      LEXORA_RBAC_ENFORCE: ${LEXORA_RBAC_ENFORCE:-all}
+    ports: ["127.0.0.1:8200:8000", "[::1]:8200:8000"]
+    depends_on: [auth-service]
+
+  auth-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/auth } }
+    environment:
+      <<: *svc-env
+      # 2026-10-24 signed UI grant (docs/security/UI_GRANT.md): the LOCAL dev key lives in the git-ignored .env
+      # (scripts/security/make_ui_grant_key.py --kid dev --env). No key -> nobody can sign in to the web app.
+      UI_GRANT_PRIVATE_KEY: ${UI_GRANT_PRIVATE_KEY:-}
+      UI_GRANT_KID: ${UI_GRANT_KID:-dev}
+    ports: ["127.0.0.1:8201:8000", "[::1]:8201:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  employee-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/employee } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8202:8000", "[::1]:8202:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  onboarding-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/onboarding } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8203:8000", "[::1]:8203:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  payroll-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/payroll } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8204:8000", "[::1]:8204:8000"]
+    # IT-declaration proofs + reimbursement bills (LEXORA_FILES_DIR) must survive rebuilds.
+    volumes: ["lexora_files:/app/data/files"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  time-attendance-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/time_attendance } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8205:8000", "[::1]:8205:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  leave-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/leave } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8206:8000", "[::1]:8206:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  approvals-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/approvals } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8207:8000", "[::1]:8207:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  notification-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/notification } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8208:8000", "[::1]:8208:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  ai-platform-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/ai_platform } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8209:8000", "[::1]:8209:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  ops-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/ops } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8210:8000", "[::1]:8210:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  compliance-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/compliance } }
+    environment: *svc-env
+    ports: ["127.0.0.1:8211:8000", "[::1]:8211:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  # Outbound provider adapters (WhatsApp opt-ins + inbound webhooks). Keys are saved per org (encrypted).
+  integrations-service:
+    build: { context: ./backend, dockerfile: Dockerfile, args: { SVC: services/integrations } }
+    environment:
+      <<: *svc-env
+      LEXORA_PUBLIC_API_URL: ${LEXORA_PUBLIC_API_URL:-}
+    ports: ["127.0.0.1:8212:8000", "[::1]:8212:8000"]
+    depends_on: { postgres: { condition: service_healthy } }
+
+  # S3 — schema migrations (one-shot; not started by `up`):
+  #   docker compose --profile tools run --rm migrate upgrade|check|current
+  migrate:
+    profiles: ["tools"]
+    build: { context: ./backend, dockerfile: Dockerfile, target: migrate }
+    image: lexora-hrm-migrate:dev
+    environment: *svc-env
+    depends_on: { postgres: { condition: service_healthy } }
+
+  # S3 — the production web build behind nginx, for a local check of the real bundle + headers:
+  #   docker compose --profile web up -d web   → http://localhost:8280
+  web:
+    profiles: ["web"]
+    build: { context: ./frontend }
+    environment:
+      LEXORA_GATEWAY_UPSTREAM_HOSTPORT: api-gateway:8000
+    ports: ["127.0.0.1:8280:8080"]
+    depends_on: [api-gateway]
+
+volumes:
+  lexora_pg:
+  lexora_files:

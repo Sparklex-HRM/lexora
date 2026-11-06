@@ -1,0 +1,2 @@
+# Migration tooling only (the lexora-migrate image / CI). Pinned by constraints.txt.
+alembic==1.14.0

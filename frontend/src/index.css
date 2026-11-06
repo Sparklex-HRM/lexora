@@ -1,0 +1,779 @@
+/* Brand fonts — bundled locally so the app works without external network.
+ * Aligned with medfidelity_ivf so both apps render with the same typeface.
+ *   - Bogart Alt Regular   → display / headings (logotype font)
+ *   - MD System Narrow     → body / UI (medium + bold)
+ *   - Georgia / Arial      → fall-throughs from the brand book */
+@font-face {
+  font-family: "Bogart Alt";
+  src: url("./assets/fonts/BogartAlt-Regular.otf") format("opentype"),
+       url("./assets/fonts/BogartAlt-Regular.ttf") format("truetype");
+  font-weight: 350;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MD System Narrow";
+  src: url("./assets/fonts/MDSystemNarrow-Medium.woff2") format("woff2"),
+       url("./assets/fonts/MDSystemNarrow-Medium.woff")  format("woff");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "MD System Narrow";
+  src: url("./assets/fonts/MDSystemNarrow-Bold.woff2") format("woff2"),
+       url("./assets/fonts/MDSystemNarrow-Bold.woff")  format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body { @apply bg-surface font-sans text-gray-800 antialiased; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { @apply bg-surface; }
+  ::-webkit-scrollbar-thumb { @apply bg-primary-200 rounded-full; }
+  /* Native checkboxes / radios / range / progress use the browser's blue unless told:
+     Lexora indigo everywhere (dark mode uses the lighter 400 so the tick stays visible). */
+  :root { accent-color: #4338ca; }
+  html.dark { accent-color: #818cf8; }
+}
+
+/* TipTap Rich Editor */
+.ProseMirror { outline: none; min-height: 100px; }
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left; color: #adb5bd; pointer-events: none; height: 0;
+}
+.ProseMirror h2 { font-size: 1.1rem; font-weight: 600; margin: 0.5rem 0; }
+.ProseMirror ul { list-style: disc; padding-left: 1.2rem; }
+.ProseMirror ol { list-style: decimal; padding-left: 1.2rem; }
+.ProseMirror p { margin: 0.25rem 0; }
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium px-4 py-2 rounded-lg
+           transition-all duration-150 shadow-sm hover:shadow-md active:scale-95 text-sm;
+  }
+  .btn-secondary {
+    @apply bg-white border border-surface-border hover:border-primary-300 text-gray-700 font-medium
+           px-4 py-2 rounded-lg transition-all duration-150 text-sm;
+  }
+  .btn-teal {
+    @apply bg-teal-600 hover:bg-teal-700 text-white font-medium px-4 py-2 rounded-lg
+           transition-all duration-150 shadow-sm text-sm;
+  }
+  .card {
+    @apply bg-surface-card rounded-xl border border-surface-border shadow-card p-5;
+  }
+  .input {
+    @apply w-full border border-surface-border rounded-lg px-3 py-2 text-sm focus:outline-none
+           focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-colors bg-white;
+  }
+  /* Compact variant — used by filter rows / dropdowns / kpi inputs across
+   * TasksPage, AccountsPage, AssetsPage, DailyRevenuePage, DocumentVaultPage
+   * etc. Was referenced everywhere but never defined → fell back to browser
+   * default styling (no border, no padding, no focus ring) which QA flagged
+   * as "dropdown containers/borders not visible". Same look as .input minus
+   * w-full + py-2; callers add h-9/text-xs overrides as needed. */
+  .input-base {
+    @apply border border-surface-border rounded-lg px-3 py-1.5 text-sm bg-white
+           focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100
+           transition-colors;
+  }
+  .badge-purple { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-700; }
+  .badge-teal   { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-600; }
+  .badge-green  { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700; }
+  .badge-red    { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700; }
+  .badge-amber  { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700; }
+}
+
+/* OPD Display board marquee */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Dark mode — global overrides
+   ───────────────────────────────────────────────────────────────────────────
+   Strategy: instead of adding `dark:` variants to every component (thousands
+   of touch-points), we redefine the most-used color utilities under .dark.
+   The existing components keep their `bg-white`, `text-gray-800`, etc. and
+   automatically pick up dark variants when <html> has the .dark class.
+
+   Palette:
+     surface (page bg)        #0f172a  (slate-900)
+     panel (cards/inputs)     #1e293b  (slate-800)
+     panel-2 (hover/raised)   #273449  (between 800 & 700)
+     border                   #334155  (slate-700)
+     text-primary             #e5e7eb  (gray-200)
+     text-muted               #9ca3af  (gray-400)
+   ═════════════════════════════════════════════════════════════════════════ */
+
+html.dark { color-scheme: dark; }
+
+html.dark body {
+  background-color: #0f172a;
+  color: #e5e7eb;
+}
+
+/* Custom utility classes shipping in this app */
+html.dark .bg-surface          { background-color: #0f172a !important; }
+html.dark .bg-surface-card,
+html.dark .bg-surface\/60      { background-color: #1e293b !important; }
+html.dark .border-surface-border,
+html.dark .border-surface\/60  { border-color: #334155 !important; }
+
+/* Cards / inputs / buttons defined in @layer components */
+html.dark .card {
+  background-color: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.3);
+}
+html.dark .input {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e5e7eb;
+}
+html.dark .input::placeholder { color: #6b7280; }
+html.dark .input-base {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #e5e7eb;
+}
+html.dark .input-base::placeholder { color: #6b7280; }
+html.dark .btn-secondary {
+  background-color: #273449;
+  border-color: #334155;
+  color: #e5e7eb;
+}
+html.dark .btn-secondary:hover { border-color: #4f46e5; }
+
+/* Native form controls — date pickers, selects */
+html.dark select.input,
+html.dark select { background-color: #0f172a; color: #e5e7eb; }
+html.dark input[type="date"],
+html.dark input[type="time"],
+html.dark input[type="datetime-local"] { color-scheme: dark; }
+html.dark textarea { background-color: #0f172a; color: #e5e7eb; border-color: #334155; }
+
+/* Most-used Tailwind utilities — flipped under .dark */
+html.dark .bg-white            { background-color: #1e293b !important; }
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/40,
+html.dark .bg-slate-50\/60     { background-color: #273449 !important; }
+html.dark .bg-slate-100        { background-color: #334155 !important; }
+html.dark .bg-gray-50          { background-color: #273449 !important; }
+html.dark .bg-gray-100         { background-color: #334155 !important; }
+
+/* Gray text — light in dark mode */
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700       { color: #e5e7eb !important; }
+html.dark .text-gray-600       { color: #cbd5e1 !important; }
+html.dark .text-gray-500       { color: #94a3b8 !important; }
+html.dark .text-gray-400       { color: #6b7280 !important; }
+html.dark .text-gray-300       { color: #4b5563 !important; }
+html.dark .text-slate-700,
+html.dark .text-slate-800      { color: #e5e7eb !important; }
+html.dark .text-slate-600,
+html.dark .text-slate-500      { color: #94a3b8 !important; }
+
+/* Borders */
+html.dark .border-slate-50,
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300    { border-color: #334155 !important; }
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300     { border-color: #334155 !important; }
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-surface-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
+
+/* Hover states using slate */
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover { background-color: #273449 !important; }
+html.dark .hover\:bg-gray-50:hover,
+html.dark .hover\:bg-gray-100:hover  { background-color: #273449 !important; }
+html.dark .hover\:bg-surface\/60:hover { background-color: #273449 !important; }
+html.dark .hover\:bg-white:hover     { background-color: #1e293b !important; }
+
+/* Brand-tinted backgrounds — keep accent but darken so light text is legible */
+html.dark .bg-primary-50       { background-color: rgba(79, 70, 229, .12) !important; }
+html.dark .bg-primary-50\/50   { background-color: rgba(79, 70, 229, .08) !important; }
+html.dark .bg-primary-100      { background-color: rgba(79, 70, 229, .2) !important; }
+html.dark .bg-teal-50,
+html.dark .bg-teal-50\/30      { background-color: rgba(59, 130, 246, .12) !important; }
+html.dark .bg-teal-100         { background-color: rgba(59, 130, 246, .22) !important; }
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-50\/40   { background-color: rgba(16, 185, 129, .12) !important; }
+html.dark .bg-emerald-100      { background-color: rgba(16, 185, 129, .22) !important; }
+html.dark .bg-amber-50,
+html.dark .bg-amber-50\/60,
+html.dark .bg-amber-50\/40     { background-color: rgba(245, 158, 11, .12) !important; }
+html.dark .bg-amber-100        { background-color: rgba(245, 158, 11, .22) !important; }
+html.dark .bg-rose-50,
+html.dark .bg-rose-50\/30,
+html.dark .bg-rose-50\/40,
+html.dark .bg-rose-50\/60      { background-color: rgba(244, 63, 94, .12) !important; }
+html.dark .bg-rose-100         { background-color: rgba(244, 63, 94, .22) !important; }
+html.dark .bg-blue-50,
+html.dark .bg-blue-50\/40      { background-color: rgba(59, 130, 246, .12) !important; }
+html.dark .bg-blue-100         { background-color: rgba(59, 130, 246, .22) !important; }
+html.dark .bg-violet-50        { background-color: rgba(79, 70, 229, .12) !important; }
+html.dark .bg-violet-100       { background-color: rgba(79, 70, 229, .22) !important; }
+html.dark .bg-indigo-50,
+html.dark .bg-indigo-50\/50,
+html.dark .bg-indigo-50\/60    { background-color: rgba(79, 70, 229, .12) !important; }
+html.dark .bg-indigo-100       { background-color: rgba(79, 70, 229, .22) !important; }
+html.dark .bg-purple-50        { background-color: rgba(79, 70, 229, .12) !important; }
+html.dark .bg-purple-100       { background-color: rgba(79, 70, 229, .22) !important; }
+html.dark .bg-pink-50          { background-color: rgba(236, 72, 153, .12) !important; }
+html.dark .bg-pink-100         { background-color: rgba(236, 72, 153, .22) !important; }
+html.dark .bg-cyan-50          { background-color: rgba(6, 182, 212, .12) !important; }
+html.dark .bg-cyan-100         { background-color: rgba(6, 182, 212, .22) !important; }
+html.dark .bg-sky-50,
+html.dark .bg-sky-50\/60       { background-color: rgba(14, 165, 233, .12) !important; }
+html.dark .bg-red-50           { background-color: rgba(239, 68, 68, .12) !important; }
+html.dark .bg-red-100          { background-color: rgba(239, 68, 68, .22) !important; }
+html.dark .bg-green-100        { background-color: rgba(34, 197, 94, .22) !important; }
+html.dark .bg-yellow-50        { background-color: rgba(234, 179, 8, .12) !important; }
+html.dark .bg-yellow-100       { background-color: rgba(234, 179, 8, .22) !important; }
+html.dark .bg-green-50         { background-color: rgba(34, 197, 94, .12) !important; }
+html.dark .hover\:bg-primary-50:hover,
+html.dark .hover\:bg-primary-100:hover { background-color: rgba(79, 70, 229, .22) !important; }
+
+/* Opacity variants (bg-primary-50/40, bg-rose-50/60 …) — selected table rows, setup cards,
+   callouts. Without these they paint a LIGHT tint under dark-mode light text. The brand
+   families (primary / violet / indigo / purple) all resolve to the Lexora indigo tint. */
+html.dark [class*="bg-primary-50/"],  html.dark [class*="bg-primary-100/"],
+html.dark [class*="bg-violet-50/"],   html.dark [class*="bg-indigo-50/"],
+html.dark [class*="bg-purple-50/"]    { background-color: rgba(79, 70, 229, .14) !important; }
+html.dark [class*="bg-teal-50/"]      { background-color: rgba(59, 130, 246, .12) !important; }
+html.dark [class*="bg-emerald-50/"],
+html.dark [class*="bg-green-50/"]     { background-color: rgba(16, 185, 129, .10) !important; }
+html.dark [class*="bg-amber-50/"]     { background-color: rgba(245, 158, 11, .10) !important; }
+html.dark [class*="bg-rose-50/"],
+html.dark [class*="bg-red-50/"]       { background-color: rgba(244, 63, 94, .10) !important; }
+html.dark [class*="bg-gray-50/"],
+html.dark [class*="bg-slate-50/"]     { background-color: rgba(39, 52, 73, .55) !important; }
+
+/* ── Gradient backgrounds (QA: dark-mode contrast fixes) ───────────────────
+   Tailwind's `bg-gradient-to-*` utility sets `background-image` to a
+   linear-gradient using the --tw-gradient-stops CSS vars from `from-*` /
+   `via-*` / `to-*`. Light gradients (e.g. `from-purple-50/40 to-white` on
+   AIInsightsCard, `from-primary-50 to-teal-50` on the BranchSwitcher chip
+   that holds "Mediora") paint over the underlying dark `.card` background
+   and leave the (now-light) text invisible. We kill the gradient image
+   under .dark so the solid card background wins and our flipped text
+   utilities (text-gray-700→#e5e7eb etc.) render legibly.
+
+   This is intentionally heavy-handed — any element that *needs* a gradient
+   in dark mode can override with its own `dark:` variant. Today nothing
+   does, so the global override is the right default. */
+html.dark .bg-gradient-to-r,
+html.dark .bg-gradient-to-l,
+html.dark .bg-gradient-to-t,
+html.dark .bg-gradient-to-b,
+html.dark .bg-gradient-to-tr,
+html.dark .bg-gradient-to-tl,
+html.dark .bg-gradient-to-br,
+html.dark .bg-gradient-to-bl {
+  background-image: none !important;
+}
+
+/* Where the gradient also carried the *only* background colour (no fallback
+   on the element), we need a sensible solid. Cards already pick up `.card`
+   underneath. For the BranchSwitcher button (which has no .card), give the
+   primary→teal chip an explicit dark fill so it stays branded. */
+html.dark .bg-gradient-to-r.from-primary-50.to-teal-50,
+html.dark .bg-gradient-to-r.from-primary-500.to-teal-500 {
+  background-color: rgba(79, 70, 229, .18) !important;
+}
+
+/* Brand-tinted borders → slightly more visible on dark */
+html.dark .border-primary-100,
+html.dark .border-primary-200  { border-color: rgba(79, 70, 229, .35) !important; }
+html.dark .border-teal-100,
+html.dark .border-teal-200     { border-color: rgba(59, 130, 246, .35) !important; }
+html.dark .border-emerald-100,
+html.dark .border-emerald-200  { border-color: rgba(16, 185, 129, .35) !important; }
+html.dark .border-amber-100,
+html.dark .border-amber-200    { border-color: rgba(245, 158, 11, .35) !important; }
+html.dark .border-rose-100,
+html.dark .border-rose-200,
+html.dark .border-rose-300     { border-color: rgba(244, 63, 94, .35) !important; }
+html.dark .border-blue-100,
+html.dark .border-blue-200     { border-color: rgba(59, 130, 246, .35) !important; }
+html.dark .border-violet-200   { border-color: rgba(79, 70, 229, .35) !important; }
+html.dark .border-indigo-100,
+html.dark .border-indigo-200   { border-color: rgba(79, 70, 229, .35) !important; }
+html.dark .border-purple-200,
+html.dark .border-purple-300   { border-color: rgba(79, 70, 229, .35) !important; }
+html.dark .border-pink-200     { border-color: rgba(236, 72, 153, .35) !important; }
+
+/* Text on brand-tinted bgs — keep saturated foreground but bump readability */
+/* Lexora indigo on the dark surfaces (#0f172a / #1e293b): 300 = 8.6:1, 400 = 5.7:1 —
+   the light-mode link / label shades (500–800) would be ~2–3:1 here. */
+html.dark .text-primary-900,
+html.dark .text-primary-800,
+html.dark .text-primary-700,
+html.dark .text-primary-600    { color: #a5b4fc !important; }
+html.dark .text-primary-500    { color: #818cf8 !important; }
+html.dark .hover\:text-primary-700:hover,
+html.dark .hover\:text-primary-600:hover { color: #c7d2fe !important; }
+html.dark .text-ink            { color: #eef2ff !important; }
+html.dark .text-ink-soft       { color: #93a5a1 !important; }
+html.dark .text-teal-700,
+html.dark .text-teal-600       { color: #d8b4fe !important; }
+html.dark .text-emerald-700,
+html.dark .text-emerald-600    { color: #34d399 !important; }
+html.dark .text-amber-700,
+html.dark .text-amber-600,
+html.dark .text-amber-800      { color: #fcd34d !important; }
+html.dark .text-rose-700,
+html.dark .text-rose-600,
+html.dark .text-rose-800       { color: #fda4af !important; }
+html.dark .text-blue-700,
+html.dark .text-blue-600       { color: #93c5fd !important; }
+html.dark .text-violet-700,
+html.dark .text-violet-600     { color: #a5b4fc !important; }
+html.dark .text-indigo-700,
+html.dark .text-indigo-600     { color: #a5b4fc !important; }
+html.dark .text-purple-700,
+html.dark .text-purple-600     { color: #d8b4fe !important; }
+html.dark .text-pink-700,
+html.dark .text-pink-600       { color: #f9a8d4 !important; }
+html.dark .text-cyan-700,
+html.dark .text-cyan-600       { color: #67e8f9 !important; }
+html.dark .text-red-700,
+html.dark .text-red-600        { color: #fca5a5 !important; }
+html.dark .text-green-700,
+html.dark .text-green-600      { color: #86efac !important; }
+
+/* Tables & rows — dividers, hover */
+html.dark thead.bg-surface,
+html.dark thead.bg-slate-50    { background-color: #273449 !important; }
+html.dark tbody tr:hover       { background-color: rgba(255, 255, 255, .025); }
+
+/* Scrollbars in dark */
+html.dark ::-webkit-scrollbar-track { background-color: #1e293b; }
+html.dark ::-webkit-scrollbar-thumb { background-color: #475569; }
+
+/* Modal/overlay backdrops stay near-black; modal content already uses bg-white
+   which is overridden above. */
+
+/* React-hot-toast — use dark-friendly defaults when our class is present */
+html.dark .react-hot-toast > div,
+html.dark [data-sonner-toast] {
+  background: #1e293b !important;
+  color: #e5e7eb !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE LAYER  —  phone · tablet · laptop · wall-mounted TV
+   ───────────────────────────────────────────────────────────────────────────
+   Same strategy as the dark-mode block above: this product is ~120 pages and
+   ~280 components, so the leverage is in fixing the *shared shapes* once here
+   rather than editing every screen. Everything below is either
+
+     (a) scoped to a max-width media query — so a laptop/desktop, which is
+         where the bulk of the day's work happens, is untouched by
+         construction; or
+     (b) a containment rule that only changes behaviour when content would
+         otherwise have burst out of its box.
+
+   Browser zoom needs no special handling once this is in place: zooming to
+   200% halves the CSS-pixel viewport width, so the same breakpoints that
+   serve a phone serve a zoomed-in desktop. That is the whole reason the
+   layout has to be driven by breakpoints and flex/grid rather than fixed
+   heights.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. The page must never scroll sideways ──────────────────────────────
+   `clip` rather than `hidden` on purpose: `hidden` would turn the document
+   into a scroll container and break every `position: sticky` header in the
+   app. `clip` suppresses the sideways scroll without creating a scrollport.
+   Anything genuinely wide is given its own scroller by rule 2. */
+html, body { overflow-x: clip; }
+
+/* ── 2. Wide tables scroll inside their own box ──────────────────────────
+   304 <table>s live in this codebase and ~a third of them sat in a plain
+   card with no scroller, so a 10-column bill or ledger dragged the whole
+   page sideways. Instead of touching a hundred call sites, the element that
+   directly wraps a table becomes that table's horizontal scroller.
+
+   Excluded: tables that pin a header row or a first column (`.sticky`
+   anywhere inside). Those already own a scrollport further out — the MD
+   dashboard grid, the HR roster, the trial workspace — and adding a nearer
+   one would re-anchor `sticky` to a box that never scrolls, i.e. unpin it.
+
+   Specificity is deliberately (0,1,1) via `:not()` so this also wins over a
+   `.overflow-hidden` card, which would otherwise clip the overflow away
+   with no way to reach it. `overflow-y` is left alone, so a card that was
+   clipping vertically still clips. */
+body :has(> table):not(:has(> table .sticky)) { overflow-x: auto; }
+
+/* Below a laptop, stop column headers from wrapping. A header that wraps
+   lets an 11-column table squeeze itself into 360px as eleven unreadable
+   1-character columns; keeping headers on one line gives every column an
+   honest minimum width, which is what makes rule 2 actually engage. Body
+   cells still wrap, and `thead th` rather than `th` so that row-header cells
+   (a patient or head-of-account name in the first column) keep wrapping.
+   Desktop keeps today's behaviour. */
+@media (max-width: 1023px) {
+  thead th { white-space: nowrap; }
+}
+
+/* ── 3. Dense grids on a phone ───────────────────────────────────────────
+   `grid-cols-N` tracks are `minmax(0,1fr)` so they shrink rather than
+   overflow — but four stat cards across a 375px screen is 80px each, which
+   is not a readable number. Halve the text-ish grids only.
+
+   Deliberately NOT touched: grid-cols-5/6/7/8/10/16. Those are the tile
+   grids — bed maps, ward occupancy, slot pickers — where small squares are
+   the point and two giant tiles per row would be a downgrade.
+
+   The col-span clamp is not cosmetic, it is required for correctness: a
+   `col-span-3` child inside a grid we just narrowed to 2 tracks would make
+   the browser generate a third, implicit, auto-sized column and burst the
+   container. Spanning the full row is both correct and what you want on a
+   phone. */
+@media (max-width: 639px) {
+  /* `[class*=":grid-cols-"]` is the escape hatch: a colon only ever appears
+     in a Tailwind variant, so an element written `grid-cols-3 sm:grid-cols-6`
+     is one where somebody has already decided what a phone should get, and
+     is left exactly as written. This only reaches the grids nobody thought
+     about — which is most of them.
+
+     `mf-keep-cols` is the second escape hatch, for a grid whose track count
+     is correct on a phone but has no variant to say so — three short count
+     chips, say, where dropping to two tracks strands the third. Add the
+     class rather than writing `grid-cols-3 sm:grid-cols-3`. */
+  .grid-cols-3:not([class*=":grid-cols-"]):not(.mf-keep-cols),
+  .grid-cols-4:not([class*=":grid-cols-"]):not(.mf-keep-cols),
+  .grid-cols-12:not([class*=":grid-cols-"]):not(.mf-keep-cols) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .col-span-3:not([class*=":col-span-"]), .col-span-4:not([class*=":col-span-"]),
+  .col-span-5:not([class*=":col-span-"]), .col-span-6:not([class*=":col-span-"]),
+  .col-span-7:not([class*=":col-span-"]), .col-span-8:not([class*=":col-span-"]),
+  .col-span-9:not([class*=":col-span-"]), .col-span-10:not([class*=":col-span-"]),
+  .col-span-11:not([class*=":col-span-"]), .col-span-12:not([class*=":col-span-"]) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── 3a. Header rows and toolbars ────────────────────────────────────────
+   `flex items-center justify-between` appears 591 times across 125 page
+   files — it is *the* page-header and card-header idiom here, far more than
+   the shared <PageHeader> component, which only three pages import. Every
+   one of them is a long title on the left and a row of action buttons on the
+   right, and every one of them bursts its container somewhere around 500px.
+
+   Letting them wrap is close to strictly better, because flex only wraps
+   when the content would otherwise have overflowed. Each resulting line is
+   justified on its own, so a two-child row becomes title-above-actions, both
+   left-aligned — which is the layout you would have written by hand. The
+   `row-gap` has no effect at all until a row actually wraps.
+
+   Second rule: a toolbar with three or more buttons side by side. Same
+   reasoning, detected structurally rather than by class. */
+@media (max-width: 639px) {
+  .flex.justify-between:not(.flex-col):not(.flex-wrap):not(.flex-nowrap),
+  .flex:not(.flex-col):not(.flex-wrap):not(.flex-nowrap):has(> button:nth-of-type(3)) {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+}
+
+/* ── 3b. Filter rows and long strings ────────────────────────────────────
+   The other half of the sideways-scroll problem is not tables, it is the
+   filter row above them: `flex items-center gap-3` holding four or five
+   `w-[160px]` selects. ~150 of those hard pixel widths exist, and five of
+   them is 800px on a 375px screen with nothing to scroll inside.
+
+   The `[class*="w-["]` test is deliberately narrow — it matches only
+   Tailwind's arbitrary-value widths (`w-[160px]`, `min-w-[220px]`), i.e.
+   exactly the controls that refuse to shrink. A row of `w-8` avatars is
+   untouched. Rows that ask for `flex-nowrap` keep it. */
+@media (max-width: 767px) {
+  .flex:not(.flex-col):not(.flex-nowrap):has(> [class*="w-\["]) { flex-wrap: wrap; }
+
+  /* A long unbroken string — a UUID, an ABHA address, a 40-character drug
+     name — is otherwise an unbreakable box wider than the phone. */
+  body { overflow-wrap: break-word; }
+}
+
+/* `flex: 1 1 0%` still carries `min-width: auto`, so a flex child refuses to
+   shrink below its content and pushes the row past the viewport instead. At
+   laptop width and above there is room, and overriding this could change a
+   deliberate layout, so it is scoped to the widths where it is the
+   difference between truncating and scrolling sideways. */
+@media (max-width: 1023px) {
+  .flex-1 { min-width: 0; }
+}
+
+/* ── 3c. Tab strips ──────────────────────────────────────────────────────
+   A hand-rolled tab strip is a flex row whose tabs are <button>s carrying
+   the `border-b-2` active-underline. ~40 pages roll their own (Radiology,
+   Assets, Compliance, Inventory, Dialysis, …) instead of the shared <TabBar>,
+   which already scrolls. With no scroller of their own, a strip of 6-10 tabs
+   overflows the content box and — because `html { overflow-x: clip }` above
+   suppresses the page scroll rather than delegating it — the trailing tabs
+   are simply *cut off screen* with no way to reach them. This is the exact
+   bug the second pass fixed by hand in IPD's Chart/Plan sub-tabs; it recurs
+   unfixed on every page that hand-rolls the same shape.
+
+   Below 640px rule 3a already wraps any 3-plus-button flex row, so those tabs
+   stay reachable there. The gap this closes is the 640-1023px tablet band,
+   where nothing wraps and — until now — nothing scrolled. The container gets
+   a horizontal scroller; its direct tab buttons stop shrinking (a shrinking
+   tab squeezes to an unreadable sliver instead of overflowing into the
+   scroller) and keep their label on one line.
+
+   `border-b-2` on a <button> is only ever a tab here, and `:not(.flex-col)`
+   skips any vertical tab list, so the match is precise. Desktop (>=1024px) is
+   untouched by construction. The already-fixed strips (IPD/EMR/OT/HR/OPD and
+   <TabBar>) already carry `overflow-x-auto` + `shrink-0 whitespace-nowrap`,
+   so the rule is idempotent on them. Needs `:has()` — same floor as rule 2. */
+@media (max-width: 1023px) {
+  .flex:not(.flex-col):has(> button[class*="border-b-2"]) { overflow-x: auto; }
+  .flex:not(.flex-col):has(> button[class*="border-b-2"]) > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+/* ── 4. Modals become sheets on a phone ──────────────────────────────────
+   225 modal shells across the app share one shape: a `fixed inset-0` flex
+   box that centres a panel. Centring is the bug on a short screen — a panel
+   taller than the viewport overflows equally off the top and the bottom and
+   neither end can be scrolled to. Pin such shells to the top and let them
+   scroll. `flex-col` shells are excluded because there `align-items`
+   controls the horizontal axis (the Speak agent is one of these) and
+   flex-start would shove their contents to the left edge. */
+@media (max-width: 639px) {
+  .fixed.inset-0.items-center:not(.flex-col) {
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+  .fixed.inset-0 > * { max-width: 100%; }
+  /* Cards carry 20px of padding, which is a lot of a 375px screen. */
+  .card { padding: 0.875rem; }
+}
+
+/* ── 5. Touch targets ────────────────────────────────────────────────────
+   `pointer: coarse` is the *primary* pointer, so this is phones and bedside
+   tablets only — a laptop with a touchscreen still reports `fine` and keeps
+   today's density. A nurse tapping a 24px icon button with a thumb at a
+   bedside is the case this exists for. */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  [role="tab"],
+  summary,
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea { min-height: 40px; }
+
+  /* Icon-only buttons — the p-1 / p-1.5 / p-2 pattern used in the header,
+     table row actions and card toolbars — need width as well as height. */
+  button.p-0\.5, button.p-1, button.p-1\.5, button.p-2,
+  a.p-0\.5, a.p-1, a.p-1\.5, a.p-2 {
+    min-width: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  input[type="checkbox"], input[type="radio"] { min-width: 20px; min-height: 20px; }
+}
+
+/* ── 6. Charts ───────────────────────────────────────────────────────────
+   recharts sizes a ResponsiveContainer from its parent and then *keeps* the
+   larger measurement when the window shrinks, because a flex or grid child
+   will not go below its content width without `min-width: 0`. That is the
+   chart that grows on rotate and never comes back.
+
+   No `min-height` here on purpose: every ResponsiveContainer in this app is
+   already given an explicit height, either as a prop or by a sized wrapper,
+   so there is no collapsing chart to rescue — and a global floor would
+   inflate the 40px sparklines to a fifth of a phone screen. */
+.recharts-responsive-container { min-width: 0; }
+.recharts-wrapper { max-width: 100%; }
+
+/* ── 7. Wall-mounted TV ──────────────────────────────────────────────────
+   Read from across a room. Everything in this app is sized in rem, so
+   nudging the root size scales type, padding and gaps together — which is
+   what a viewer 4 metres away needs, as opposed to more columns.
+
+   The floor is 1920px on purpose *and unused*: a 1920×1080 laptop is an
+   ordinary desktop and must not be enlarged. Only genuinely large panels
+   (a 4K screen driven at 1:1, which is what a display board actually runs
+   on) cross 2200px. */
+@media (min-width: 2200px) { html { font-size: 17.5px; } }
+@media (min-width: 3000px) { html { font-size: 20px; } }
+
+/* ── 7b. The MD dashboard's pinned head-name column ──────────────────────
+   340px of pinned label leaves 35px of a 375px phone for the numbers. The
+   width is an inline style (the grid computes its own minWidth from it), so
+   it takes `!important` to override — which is the honest cost of narrowing
+   one specific column rather than restyling the grid. The grid still scrolls
+   sideways below a laptop; this is what makes the scroll worth doing.
+   See the note in the responsive report: a ten-period variance grid is not a
+   phone screen, and this only makes it survivable, not good. */
+@media (max-width: 1023px) {
+  .mf-mdgrid-label {
+    width: 11rem !important;
+    min-width: 11rem !important;
+    white-space: normal;
+  }
+}
+
+/* ── 8. Scroll affordances ───────────────────────────────────────────────
+   The 5px scrollbar from @layer base is invisible under a thumb. Give the
+   horizontal scrollers rule 2 creates a touch-friendly momentum scroll and
+   a slightly thicker bar on coarse pointers. */
+.scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
+@media (pointer: coarse) {
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  [class*="overflow-x-"], [class*="overflow-auto"] { -webkit-overflow-scrolling: touch; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   9. `mf-table-stack` — one card per row, below 640px
+   ───────────────────────────────────────────────────────────────────────────
+   Rule 2 gives every wide table a horizontal scroller, which keeps the data
+   reachable but not usable: on a 375px screen an eight-column OPD queue is
+   three swipes wide, and by the time the Actions column is on screen the
+   patient's name is two columns off the left. Sideways scrolling is the right
+   answer for a ledger you read; it is the wrong answer for a worklist you act
+   on.
+
+   So the dense worklists opt in to this, and below `sm` each <tr> becomes a
+   card of labelled fields. Two properties of the approach matter more than
+   the styling:
+
+     · **No column is dropped.** Every cell still renders; it renders as a
+       labelled row inside the card instead of a column. Losing a column a
+       clinician needs is not a responsive strategy, and a hidden column is a
+       silently wrong record.
+     · **There is one DOM, not two.** The alternative — a phone branch beside
+       the table branch — duplicates the row-action rules, which on the OPD
+       queue alone are six status predicates deciding which of seven buttons
+       a row gets. Two copies of that diverge. Here the markup is identical at
+       every width and only its `display` changes, so nothing can drift.
+
+   The column name comes from `data-label` on the cell, because <thead> is
+   gone in this mode. A cell with no `data-label` (a checkbox, a row-action
+   bar, a colSpan empty state) renders without one.
+
+   Desktop is untouched by construction: the whole block is inside a
+   max-width query, and `mf-table-stack` sets nothing outside it. */
+@media (max-width: 639px) {
+  table.mf-table-stack {
+    display: block;
+    width: 100%;
+    /* Some of these tables carry an inline minWidth for the desktop grid.
+       Stacked, there is nothing to be wide about. */
+    min-width: 0 !important;
+  }
+  .mf-table-stack > thead { display: none; }
+  .mf-table-stack > tbody { display: block; }
+
+  .mf-table-stack > tbody > tr {
+    display: block;
+    background-color: #fff;
+    border: 1px solid #e5e7ef;
+    border-radius: 0.75rem;
+    margin: 0.5rem;
+    padding: 0.2rem 0;
+  }
+
+  .mf-table-stack > tbody > tr > td,
+  .mf-table-stack > tbody > tr > th {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    width: auto !important;
+    /* `max-w-[180px] truncate` is a column-width device. In a card the column
+       is gone and the truncation would only hide the value. */
+    max-width: none !important;
+    padding: 0.3rem 0.7rem;
+    text-align: left;
+    white-space: normal;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .mf-table-stack > tbody > tr > td::before {
+    content: attr(data-label);
+    flex: 0 0 7rem;
+    font-size: 10px;
+    line-height: 1.35;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+  }
+  /* Unlabelled cells: nothing sensible to put in the gutter, so don't
+     reserve it. `[colspan]` catches the empty-state and "no rows" rows,
+     which are a message rather than a field. */
+  .mf-table-stack > tbody > tr > td:not([data-label])::before,
+  .mf-table-stack > tbody > tr > td[data-label=""]::before { content: none; }
+  .mf-table-stack > tbody > tr > td[colspan] { display: block; }
+  .mf-table-stack > tbody > tr > td[colspan]::before { content: none; }
+
+  /* The value side of the field. `min-width: 0` so a long drug name or an
+     ABHA address wraps instead of pushing the card open. */
+  .mf-table-stack > tbody > tr > td > * { min-width: 0; }
+
+  /* A row-action bar is the one cell that wants the full width of the card
+     and a rule above it — it is the footer of the card, not a field. Its
+     label takes a whole line so seven icon buttons at 40px (which is what
+     `pointer: coarse` gives them) have the card's full width to wrap into
+     rather than the 5rem left beside a gutter label. */
+  .mf-table-stack > tbody > tr > td.mf-rowactions {
+    border-top: 1px solid #eef0f5;
+    margin-top: 0.2rem;
+    padding-top: 0.45rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .mf-table-stack > tbody > tr > td.mf-rowactions::before { flex: 0 0 100%; }
+  .mf-table-stack > tbody > tr > td.mf-rowactions > * { flex-wrap: wrap; }
+
+  /* Kept inside the media query on purpose: outside it this would paint a
+     flat background over the zebra striping of a desktop table. */
+  html.dark .mf-table-stack > tbody > tr { background-color: #1e293b; border-color: #334155; }
+  html.dark .mf-table-stack > tbody > tr > td.mf-rowactions { border-top-color: #334155; }
+}
+
+/* ── Lexora additions ─────────────────────────────────────────────────────
+   .icon-btn: small square icon button used in modal headers / row actions.
+   Defined here because the HMS markup references it from component files. */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.375rem; border-radius: 0.5rem; transition: all .15s;
+}
+.icon-btn:hover { background: rgba(0,0,0,.05); }
+html.dark .icon-btn:hover { background: rgba(255,255,255,.06); }
+
+/* ── Global search (2026-10-20): the record a search result opened is flashed once ── */
+@keyframes lx-search-hl { 0%, 60% { box-shadow: 0 0 0 2px #4f46e5, 0 0 0 6px rgba(79, 70, 229, .18); background-color: rgba(59, 130, 246, .14); } 100% { box-shadow: none; } }
+.lx-search-hl { animation: lx-search-hl 3.8s ease-out 1; border-radius: .5rem; }
+html.dark .lx-search-hl { background-color: rgba(129, 140, 248, .18); }

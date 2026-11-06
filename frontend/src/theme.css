@@ -1,0 +1,44 @@
+/* Lexora HRM — brand theme (indigo palette of the gradient "L" mark). Import once at app root.
+   Variable names (--teal, --teal-d, --teal-2) are kept for compatibility; they hold the Lexora indigo. */
+:root {
+  --teal: #4f46e5;          /* primary / brand (Lexora indigo, primary-500) */
+  --teal-d: #3730a3;        /* deep accent, headings */
+  --teal-2: #818cf8;        /* bright accent (dark mode) */
+  --ink: #17232b;           /* primary text */
+  --muted: #5a6b73;         /* secondary text */
+  --faint: #8595a0;
+  --line: #d8e2e0;          /* borders */
+  --band: #eef2ff;          /* indigo tint / callouts */
+  --on-teal: #ffffff;       /* text on --teal (6.3:1) */
+  --surface: #ffffff;
+  --bg: #eef3f2;
+  --code: #f2f6f5;
+
+  /* semantic (separate from the brand accent) */
+  --ok: #0d9488;
+  --warn: #b07d0a;
+  --risk: #c0463b;
+
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(16,42,38,.06), 0 10px 30px rgba(16,42,38,.05);
+  --font: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --teal: #818cf8; --on-teal: #1e1b4b; --teal-d: #a5b4fc; --ink: #e7efec; --muted: #93a5a1;
+    --line: #22302d; --band: #0f2420; --surface: #121d1b; --bg: #0c1413; --code: #16211f;
+  }
+}
+:root[data-theme="dark"] {
+  --teal: #818cf8; --on-teal: #1e1b4b; --teal-d: #a5b4fc; --ink: #e7efec; --muted: #93a5a1;
+  --line: #22302d; --band: #0f2420; --surface: #121d1b; --bg: #0c1413; --code: #16211f;
+}
+
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); }
+.brand { color: var(--teal); font-weight: 800; letter-spacing: -.02em; }
+.btn-primary { background: var(--teal); color: var(--on-teal); border: none; border-radius: var(--radius);
+  padding: 9px 16px; font-weight: 600; cursor: pointer; }
+.btn-primary:hover { background: var(--teal-d); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 16px; }

@@ -1,0 +1,173 @@
+# Lexora HRM web edge (nginx-unprivileged, :8080). envsubst fills ${LEXORA_*} at container start.
+# TLS terminates in front of this (cloud LB / ingress / Caddy); X-Forwarded-Proto is passed on.
+
+upstream lexora_gateway {
+    server ${LEXORA_GATEWAY_UPSTREAM_HOSTPORT};
+    keepalive 16;
+}
+
+map $http_x_forwarded_proto $lexora_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+
+# Catch-all: a request whose Host is not ours (Host-header injection, IP scans, DNS rebinding)
+# gets no answer at all (444 = close the connection). /healthz stays reachable here because
+# Docker / Kubernetes probes call by IP (Host: 127.0.0.1 / <pod-ip>).
+server {
+    listen 8080 default_server;
+    server_name _;
+    server_tokens off;
+    # malformed requests (bad request line, header too large) land here before any Host match
+    error_page 400 /__errors/400.html;
+    error_page 414 /__errors/414.html;
+    error_page 494 =400 /__errors/431.html;
+    location ^~ /__errors/ {
+        internal;
+        root /usr/share/nginx;
+        add_header Cache-Control "no-store" always;
+        include /etc/nginx/snippets/security-headers.conf;
+    }
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+    location / {
+        return 444;
+    }
+}
+
+# The app: answers ONLY for LEXORA_PUBLIC_HOST (space-separated names allowed, e.g.
+# "hr.example.in www.hr.example.in"; the image default "localhost 127.0.0.1" is for local runs).
+server {
+    listen 8080;
+    server_name ${LEXORA_PUBLIC_HOST};
+    server_tokens off;
+    root /usr/share/nginx/html;
+
+    # Our own error pages (no server banner). HTML locations only: /api/ keeps the API's own
+    # JSON errors (proxy_intercept_errors stays off there) and gets JSON for edge-made errors.
+    error_page 400 /__errors/400.html;
+    error_page 404 /__errors/404.html;
+    error_page 413 /__errors/413.html;
+    error_page 414 /__errors/414.html;
+    error_page 494 =400 /__errors/431.html;
+    error_page 500 /__errors/500.html;
+    error_page 502 /__errors/502.html;
+    error_page 503 /__errors/503.html;
+    error_page 504 /__errors/504.html;
+    location ^~ /__errors/ {
+        internal;
+        root /usr/share/nginx;
+        add_header Cache-Control "no-store" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Strict-Transport-Security "${LEXORA_HSTS}" always;
+    }
+
+    client_max_body_size ${LEXORA_MAX_BODY_MB}m;
+    client_body_timeout 30s;
+    client_header_timeout 15s;
+    keepalive_timeout 30s;
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml
+               application/manifest+json application/xml text/xml;
+
+    # liveness of the edge itself (no upstream call)
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Public e-sign: the document PDF is shown in an <iframe> of our own signing page, so this ONE
+    # answer may be framed by the same origin (the generic /api/ headers say DENY / frame-ancestors
+    # 'none', which blanked the frame in the production image — go-live check 2026-10-24).
+    location ~ ^/api/auth/esign/public/[A-Za-z0-9_-]+/pdf$ {
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass http://lexora_gateway;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $lexora_proto;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_read_timeout ${LEXORA_PROXY_TIMEOUT}s;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
+        add_header Content-Security-Policy "frame-ancestors 'self'" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Cache-Control "no-store" always;
+        add_header Strict-Transport-Security "${LEXORA_HSTS}" always;
+    }
+
+    # API → gateway (strip the /api prefix, same as the Vite dev proxy)
+    location /api/ {
+        proxy_pass http://lexora_gateway/;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $lexora_proto;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout ${LEXORA_PROXY_TIMEOUT}s;
+        proxy_read_timeout ${LEXORA_PROXY_TIMEOUT}s;
+        proxy_buffering on;
+        # The API's own JSON errors pass through untouched (no proxy_intercept_errors). Errors the
+        # EDGE makes (gateway down / slow, body too large) answer JSON, never an HTML page.
+        proxy_intercept_errors off;
+        error_page 502 503 504 = @api_unavailable;
+        error_page 413 = @api_too_large;
+        add_header Cache-Control "no-store" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Strict-Transport-Security "${LEXORA_HSTS}" always;
+    }
+    location @api_unavailable {
+        default_type application/json;
+        add_header Cache-Control "no-store" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Strict-Transport-Security "${LEXORA_HSTS}" always;
+        return 503 '{"detail":"The service is not available right now. Try again in a minute."}';
+    }
+    location @api_too_large {
+        default_type application/json;
+        add_header Cache-Control "no-store" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Strict-Transport-Security "${LEXORA_HSTS}" always;
+        return 413 '{"detail":"The upload is too large."}';
+    }
+
+    # Hashed build assets: cache for a year, immutable
+    location /assets/ {
+        try_files $uri =404;
+        access_log off;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Strict-Transport-Security "${LEXORA_HSTS}" always;
+    }
+
+    # Service worker + manifest must revalidate, or a new release never reaches installed apps
+    location ~ ^/(sw\.js|manifest\.webmanifest)$ {
+        try_files $uri =404;
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Strict-Transport-Security "${LEXORA_HSTS}" always;
+    }
+
+    # SPA: everything else is index.html (never cached, so a deploy is picked up at once)
+    location / {
+        # no `$uri/`: a SPA route named like a build directory (/assets) must not 301/403
+        try_files $uri /index.html;
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Strict-Transport-Security "${LEXORA_HSTS}" always;
+    }
+}
